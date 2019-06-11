@@ -6,26 +6,41 @@
 //  Copyright © 2019 Joao Pires. All rights reserved.
 //
 
+#if os(iOS) || os(tvOS)
 import UIKit
+#elseif os(OSX)
+import AppKit
+#endif
 import SwiftUI
 import Combine
 
-@available(swift, introduced: 5.1)
-class ImageStore: BindableObject {
+@available(iOS 13, macOS 10.15, tvOS 13, *)
+public class ImageStore: BindableObject {
     // MARK: - Properties
+    #if os(iOS) || os(tvOS)
     static var images: [URL: UIImage] = [:]
-    var didChange = PassthroughSubject<ImageStore, Never>()
-    var documentsDirectory: URL
-    var image: UIImage = UIImage() {
+    public var image: UIImage = UIImage() {
         didSet {
             DispatchQueue.main.async {
                 self.didChange.send(self)
             }
         }
     }
+    #elseif os(OSX)
+    static var images: [URL: NSImage] = [:]
+    public var image: NSImage = NSImage() {
+        didSet {
+            DispatchQueue.main.async {
+                self.didChange.send(self)
+            }
+        }
+    }
+    #endif
+    public var didChange = PassthroughSubject<ImageStore, Never>()
+    public var documentsDirectory: URL
 
     // MARK: - Initializer
-    init() {
+    public init() {
         let manager = FileManager.default
         let paths = manager.urls(for: .documentDirectory, in: .userDomainMask)
         documentsDirectory = paths[0].appendingPathComponent("Images", isDirectory: true)
@@ -41,7 +56,7 @@ class ImageStore: BindableObject {
     /// Requests an image from the given link. Subsequent requests will load the cached image for a maximum of 30 days.
     /// The return value will be as a bindable ImageStore object, with an image property.
     /// - Parameter urlString: a url that directs to an image.
-    func getImage(from urlString: String) {
+    public func getImage(from urlString: String) {
 
         DispatchQueue.global().async {
 
@@ -52,7 +67,11 @@ class ImageStore: BindableObject {
                 if let data = try? Data(contentsOf: url) {
 
                     self.save(data, forUrl: url)
+                    #if os(iOS) || os(tvOS)
                     guard let loadedImage = UIImage(data: data) else { return }
+                    #elseif os(OSX)
+                    guard let loadedImage = NSImage(data: data) else { return }
+                    #endif
                     self.image = loadedImage
                 }
             }
@@ -80,7 +99,11 @@ class ImageStore: BindableObject {
         let imageDestinationUrl = documentsDirectory.appendingPathComponent(imageName, isDirectory: false)
         if let data = try? Data.init(contentsOf: imageDestinationUrl) {
 
+            #if os(iOS) || os(tvOS)
             guard let loadedImage = UIImage(data: data) else { return }
+            #elseif os(OSX)
+            guard let loadedImage = NSImage(data: data) else { return }
+            #endif
             self.image = loadedImage
             DispatchQueue.main.async {
 
